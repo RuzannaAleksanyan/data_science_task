@@ -11,9 +11,6 @@
 # ✅️ համեմատել, 
 # ✅️ գրաֆիկներ կառուցել։ 
 
-# Database ֊ ը պետք ա հնարավորինս մեծ լինի, միլիոնը պարտադիր չի։
-
-
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -110,3 +107,86 @@ plt.show()
 
 # Display performance metrics
 print(performance_df)
+
+
+
+print("....................")
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.metrics import silhouette_score, davies_bouldin_score
+from sklearn.decomposition import PCA
+
+# Drop the target variable for unsupervised learning
+X_unsupervised = data_cleaned.drop(columns=[target_column])
+
+# Standardize the features
+X_scaled = scaler.fit_transform(X_unsupervised)
+
+# Initialize unsupervised models
+unsupervised_models = {
+    "K-Means": KMeans(n_clusters=3, random_state=42),
+    "DBSCAN": DBSCAN(eps=1.5, min_samples=5),
+    "Agglomerative Clustering": AgglomerativeClustering(n_clusters=3)
+}
+
+# Train and evaluate unsupervised models
+unsupervised_performance = {}
+
+for model_name, model in unsupervised_models.items():
+    print(f"Training {model_name}...")
+    
+    # Train model
+    start_time = time.time()
+    labels = model.fit_predict(X_scaled)
+    elapsed_time = time.time() - start_time
+    print(f"{model_name} training completed in {elapsed_time:.2f} seconds.")
+    
+    # Evaluate model performance
+    silhouette = silhouette_score(X_scaled, labels) if len(set(labels)) > 1 else float("nan")
+    davies_bouldin = davies_bouldin_score(X_scaled, labels) if len(set(labels)) > 1 else float("nan")
+    
+    print(f"{model_name} - Silhouette Score: {silhouette:.4f}, Davies-Bouldin Score: {davies_bouldin:.4f}")
+    
+    # Store results
+    unsupervised_performance[model_name] = {
+        "Silhouette Score": silhouette,
+        "Davies-Bouldin Score": davies_bouldin
+    }
+
+# Convert results to a DataFrame for visualization
+unsupervised_performance_df = pd.DataFrame(unsupervised_performance).T
+
+# Plot performance metrics
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Silhouette Score plot
+unsupervised_performance_df["Silhouette Score"].plot(kind="bar", ax=axes[0], color="lightgreen")
+axes[0].set_title("Silhouette Score")
+axes[0].set_ylabel("Score")
+axes[0].set_xticklabels(unsupervised_performance_df.index, rotation=45)
+
+# Davies-Bouldin Score plot
+unsupervised_performance_df["Davies-Bouldin Score"].plot(kind="bar", ax=axes[1], color="orange")
+axes[1].set_title("Davies-Bouldin Score")
+axes[1].set_ylabel("Score")
+axes[1].set_xticklabels(unsupervised_performance_df.index, rotation=45)
+
+plt.tight_layout()
+plt.show()
+
+# Scatter plot visualization using PCA
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+
+fig, axes = plt.subplots(1, len(unsupervised_models), figsize=(15, 5))
+for i, (model_name, model) in enumerate(unsupervised_models.items()):
+    labels = model.fit_predict(X_scaled)
+    axes[i].scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap="viridis", s=10)
+    axes[i].set_title(f"{model_name} Clustering")
+    axes[i].set_xlabel("PCA Component 1")
+    axes[i].set_ylabel("PCA Component 2")
+
+plt.tight_layout()
+plt.show()
+
+# Display performance metrics
+print(unsupervised_performance_df)
