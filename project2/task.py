@@ -1,192 +1,299 @@
-# Անհրաժեշտ է կիրառել մի քանի supervised ML մոդելներ.
+import numpy as np
+import pandas as pd
 
-# ✅️ գնահատել ճշտությունը, 
-# ✅️ համեմատել, 
-# ✅️ կառուցել մոդելի scatter գրաֆիկը, 
-# ✅️ ինչպես նաև accuracy ու error rate գրաֆիկները։ 
+df = pd.read_csv('/home/rozale/Desktop/data_science_task/project2/economic_data_600k.csv')
+df.head(20)
+df.info()
+df.isnull().sum()
+df.isnull().sum()/len(df)*100
+new_df = df.dropna()
+new_df.head(20)
+new_df.info()
+df[df.duplicated()]
+df['QuantitySold'].fillna(df['QuantitySold'].mean())
+df.head(20)
+df.describe()
 
-# Այս ամենից հետո ջնջել supervised սարքող մասը (y կամ target...), 
-# կրկնել նույնը unsupervised ML մոդելներով.
-# ✅️ գնահատել, 
-# ✅️ համեմատել, 
-# ✅️ գրաֆիկներ կառուցել։ 
+# Counting Correlation
+numeric_df = df.select_dtypes(include=[np.number])
+print("Non-numeric columns:", df.select_dtypes(exclude=[np.number]).columns)
+correlation_matrix = numeric_df.corr()
+print(correlation_matrix)
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.heatmap(correlation_matrix, cmap = 'coolwarm', cbar = True)
+plt.title('Corelation Matrix')
+# plt.show()
+
+subset = df[['QuantitySold', 'UnitPrice', 'TotalPrice']]
+subset_corr = subset.corr()
+plt.figure(figsize=(8, 6))
+sns.heatmap(subset_corr, annot=True, cmap='viridis', fmt='.2f', cbar=True)
+plt.title("Correlation Matrix (Selected Features)")
+# plt.show()
+
+from sklearn.model_selection import train_test_split
+
+# Կախյալ փոփոխական (Target) և անկախ փոփոխականներ (Features)
+X = df.drop(columns=['TransactionID', 'TotalPrice'])  # Անկախ փոփոխականներ
+y = df['TotalPrice']  # Կախյալ փոփոխական
+
+# Տվյալների բաշխում ուսուցման և թեստի համար
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Ստուգում, որ բաժանումը ճիշտ է կատարվել
+print("Train set size:", X_train.shape)
+print("Test set size:", X_test.shape)
+
+import matplotlib.pyplot as plt
+
+# `CustomerType` սյունի դասերի բաշխում ուսուցման ենթաբաժնում
+plt.figure(figsize=(8, 4))
+X_train['CustomerType'].value_counts().plot(kind='bar', color=['skyblue', 'salmon'])
+plt.title('Training Set Class Distribution (CustomerType)')
+plt.xlabel('Customer Type')
+plt.ylabel('Frequency')
+plt.xticks(rotation=0)
+# plt.show()
+
+# `CustomerType` սյունի դասերի բաշխում թեստային ենթաբաժնում
+plt.figure(figsize=(8, 4))
+X_test['CustomerType'].value_counts().plot(kind='bar', color=['blue', 'hotpink'])
+plt.title('Test Set Class Distribution (CustomerType)')
+plt.xlabel('Customer Type')
+plt.ylabel('Frequency')
+plt.xticks(rotation=0)
+# plt.show()
+
+# `QuantitySold` սյունի բաշխում
+bins = np.arange(0, df['QuantitySold'].max() + 10, 10)
+df['QuantitySold'].hist(bins=bins, color='skyblue', edgecolor='black')
+plt.title('Quantity Sold Distribution')
+plt.xlabel('Quantity Sold')
+plt.ylabel('Frequency')
+plt.xticks(bins)
+# plt.show()
+
+# Տվյալների բաժանում ուսուցման և թեստի համար
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Ստանդարտիզացում
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+
+# # Ստանդարտիզացում ուսուցման տվյալների համար
+# Exclude non-numeric columns before applying StandardScaler
+numeric_columns = X.select_dtypes(include=[np.number]).columns
+
+# Apply StandardScaler only on numeric columns
+X_train_scaled = scaler.fit_transform(X_train[numeric_columns])
+X_test_scaled = scaler.transform(X_test[numeric_columns])
+
+# Replace the scaled values back into the DataFrame
+X_train[numeric_columns] = X_train_scaled
+X_test[numeric_columns] = X_test_scaled
+
+# One-hot encoding categorical columns
+X_train = pd.get_dummies(X_train, drop_first=True)
+X_test = pd.get_dummies(X_test, drop_first=True)
+
+# Ռեգրեսիոն մոդել
+from sklearn.linear_model import LinearRegression
+model = LinearRegression()
+model.fit(X_train_scaled, y_train)
+
+# ROC Curve (ռեգրեսիոն մոդելների համար այսպես չի կիրառվում, բայց եթե ուզում ես օգտագործել որպես այլ մեթոդ)
+# from sklearn.metrics import roc_curve, auc
+# fpr, tpr, thresholds = roc_curve(y_test, model.predict(X_test_scaled))
+# roc_auc = auc(fpr, tpr)
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+# Predict on the test data
+y_pred = model.predict(X_test_scaled)
+
+# Calculate regression metrics
+mse = mean_squared_error(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+import matplotlib.pyplot as plt
+
+plt.scatter(y_test, y_pred, alpha=0.5, color='blue')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red', lw=2)  # Line of perfect prediction
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title('Actual vs Predicted Values')
+# plt.show()
+
+# from sklearn.metrics import precision_recall_curve
+# from sklearn.metrics import average_precision_score
+
+# # Precision-Recall Curve
+# precision, recall, _ = precision_recall_curve(y_test, model.predict_proba(X_test)[:, 1])
+# average_precision = average_precision_score(y_test, model.predict_proba(X_test)[:, 1])
+
+# # Պատկերի վիզուալիզացիա
+# plt.figure(figsize=(8, 6))
+# plt.plot(recall, precision, color='b', label='Precision-Recall curve (AP = %0.2f)' % average_precision)
+# plt.xlabel('Recall')
+# plt.ylabel('Precision')
+# plt.title('Precision-Recall Curve')
+# plt.legend(loc='lower left')
+# plt.show()
+import matplotlib.pyplot as plt
+
+# Predict on the test data
+y_pred = model.predict(X_test_scaled)
+
+# Calculate regression metrics
+mse = mean_squared_error(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+# Print the metrics
+print("Mean Squared Error (MSE):", mse)
+print("Mean Absolute Error (MAE):", mae)
+print("R-squared (R²):", r2)
+
+# Scatter plot of Actual vs Predicted values
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred, alpha=0.5, color='blue')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red', lw=2)  # Line of perfect prediction
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title('Actual vs Predicted Values')
+# plt.show()
+
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score
+import xgboost as xgb
+from catboost import CatBoostClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
+import seaborn as sns
 import matplotlib.pyplot as plt
-import time
 
-# Load the dataset
-file_path = 'diabetic_data.csv'  # Update with the path to your file
-data = pd.read_csv(file_path)
+# Fill missing values in 'QuantitySold' column with the mean of the column
+df['QuantitySold'] = df['QuantitySold'].fillna(df['QuantitySold'].mean())
 
-# Preprocessing
-data.replace('?', pd.NA, inplace=True)  # Replace '?' with NaN
-columns_to_drop = ['max_glu_serum', 'A1Cresult', 'weight', 'payer_code', 'medical_specialty']
-data_cleaned = data.drop(columns=columns_to_drop)  # Drop columns with excessive missing values
+# Description of numerical columns
+print(df.describe())
 
-# Encode categorical variables
-categorical_columns = data_cleaned.select_dtypes(include=['object']).columns
-label_encoders = {col: LabelEncoder() for col in categorical_columns}
+# Correlation analysis
+numeric_df = df.select_dtypes(include=[np.number])
+correlation_matrix = numeric_df.corr()
+print(correlation_matrix)
 
-for col, encoder in label_encoders.items():
-    data_cleaned[col] = encoder.fit_transform(data_cleaned[col].astype(str))
+# Visualize the correlation matrix
+sns.heatmap(correlation_matrix, cmap='coolwarm', cbar=True)
+plt.title('Correlation Matrix')
+# plt.show()
 
-# Select target and features
-target_column = 'readmitted'  # Target variable for classification
-X = data_cleaned.drop(columns=[target_column])
-y = data_cleaned[target_column]
+# Subset for specific features and visualize the correlation
+subset = df[['QuantitySold', 'UnitPrice', 'TotalPrice']]
+subset_corr = subset.corr()
+plt.figure(figsize=(8, 6))
+sns.heatmap(subset_corr, annot=True, cmap='viridis', fmt='.2f', cbar=True)
+plt.title("Correlation Matrix (Selected Features)")
+# plt.show()
+
+# Split data into features (X) and target (y)
+X = df.drop(columns=['TransactionID', 'TotalPrice', 'CustomerType'])
+y = df['CustomerType']
 
 # Split data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Scale numerical features
+# Standardize the numeric features
 scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+numeric_columns = X.select_dtypes(include=[np.number]).columns
+X_train_scaled = scaler.fit_transform(X_train[numeric_columns])
+X_test_scaled = scaler.transform(X_test[numeric_columns])
 
-# Initialize models with optimized parameters
-models = {
-    "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
-    "Random Forest": RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42),
-    "Support Vector Machine": SVC(kernel="linear", C=0.1, random_state=42)  # Simplified SVM
-}
+# Replace the scaled values back into the DataFrame
+X_train[numeric_columns] = X_train_scaled
+X_test[numeric_columns] = X_test_scaled
 
-# Train models and evaluate performance
-model_performance = {}
+# One-hot encode categorical columns
+X_train = pd.get_dummies(X_train, drop_first=True)
+X_test = pd.get_dummies(X_test, drop_first=True)
 
-for model_name, model in models.items():
-    print(f"Training {model_name}...")
-    start_time = time.time()  # Start timing
-    
-    model.fit(X_train_scaled, y_train)  # Train the model
-    
-    elapsed_time = time.time() - start_time  # Calculate elapsed time
-    print(f"{model_name} training completed in {elapsed_time:.2f} seconds.")
-    
-    # Make predictions
-    y_pred = model.predict(X_test_scaled)
-    
-    # Evaluate accuracy and error rate
-    accuracy = accuracy_score(y_test, y_pred)
-    error_rate = 1 - accuracy
-    
-    # Print results
-    print(f"{model_name} - Accuracy: {accuracy:.4f}, Error Rate: {error_rate:.4f}")
-    
-    # Store results
-    model_performance[model_name] = {"Accuracy": accuracy, "Error Rate": error_rate}
+# Using SGDClassifier with partial_fit (for handling large datasets)
+sgd_model = SGDClassifier(loss='hinge', penalty='l2', max_iter=1000, random_state=42)
 
-# Convert results to a DataFrame for visualization
-performance_df = pd.DataFrame(model_performance).T
+# Train using partial_fit in batches
+batch_size = 5000
+for i in range(0, len(X_train), batch_size):
+    X_batch = X_train[i:i+batch_size]
+    y_batch = y_train[i:i+batch_size]
+    sgd_model.partial_fit(X_batch, y_batch, classes=np.unique(y_train))
 
-# Plot accuracy and error rate
-fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+# Predict on the test data
+y_pred_svm = sgd_model.predict(X_test)
 
-# Accuracy plot
-performance_df["Accuracy"].plot(kind="bar", ax=axes[0], color="skyblue")
-axes[0].set_title("Model Accuracy")
-axes[0].set_ylabel("Accuracy")
-axes[0].set_ylim(0, 1)
-axes[0].set_xticklabels(performance_df.index, rotation=45)
+# Evaluate SGDClassifier
+accuracy_sgd = accuracy_score(y_test, y_pred_svm)
+print("SGDClassifier Accuracy:", accuracy_sgd)
 
-# Error rate plot
-performance_df["Error Rate"].plot(kind="bar", ax=axes[1], color="salmon")
-axes[1].set_title("Model Error Rate")
-axes[1].set_ylabel("Error Rate")
-axes[1].set_ylim(0, 1)
-axes[1].set_xticklabels(performance_df.index, rotation=45)
+# Generate confusion matrix for SGDClassifier
+cm_sgd = confusion_matrix(y_test, y_pred_svm)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_sgd, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
+plt.title('Confusion Matrix for SGDClassifier')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+# plt.show()
 
-plt.tight_layout()
+# Alternative 1: Using Logistic Regression
+log_reg_model = LogisticRegression(solver='liblinear', max_iter=1000, random_state=42, fit_intercept=False)
+log_reg_model.fit(X_train, y_train)
+y_pred_logreg = log_reg_model.predict(X_test)
+accuracy_logreg = accuracy_score(y_test, y_pred_logreg)
+print("Logistic Regression Accuracy:", accuracy_logreg)
+
+# Confusion matrix for Logistic Regression
+cm_logreg = confusion_matrix(y_test, y_pred_logreg)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_logreg, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
+plt.title('Confusion Matrix for Logistic Regression')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+# plt.show()
+
+# Alternative 2: Using RandomForestClassifier
+rf_model = RandomForestClassifier(n_jobs=-1, random_state=42)
+rf_model.fit(X_train, y_train)
+y_pred_rf = rf_model.predict(X_test)
+accuracy_rf = accuracy_score(y_test, y_pred_rf)
+print("Random Forest Accuracy:", accuracy_rf)
+
+# Confusion matrix for Random Forest
+cm_rf = confusion_matrix(y_test, y_pred_rf)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
+plt.title('Confusion Matrix for Random Forest')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
 plt.show()
 
-# Display performance metrics
-print(performance_df)
+# # Alternative 3: Using XGBoost
+# xgb_model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
+# xgb_model.fit(X_train, y_train)
+# y_pred_xgb = xgb_model.predict(X_test)
+# accuracy_xgb = accuracy_score(y_test, y_pred_xgb)
+# print("XGBoost Accuracy:", accuracy_xgb)
 
-
-
-print("....................")
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
-from sklearn.metrics import silhouette_score, davies_bouldin_score
-from sklearn.decomposition import PCA
-
-# Drop the target variable for unsupervised learning
-X_unsupervised = data_cleaned.drop(columns=[target_column])
-
-# Standardize the features
-X_scaled = scaler.fit_transform(X_unsupervised)
-
-# Initialize unsupervised models
-unsupervised_models = {
-    "K-Means": KMeans(n_clusters=3, random_state=42),
-    "DBSCAN": DBSCAN(eps=1.5, min_samples=5),
-    "Agglomerative Clustering": AgglomerativeClustering(n_clusters=3)
-}
-
-# Train and evaluate unsupervised models
-unsupervised_performance = {}
-
-for model_name, model in unsupervised_models.items():
-    print(f"Training {model_name}...")
-    
-    # Train model
-    start_time = time.time()
-    labels = model.fit_predict(X_scaled)
-    elapsed_time = time.time() - start_time
-    print(f"{model_name} training completed in {elapsed_time:.2f} seconds.")
-    
-    # Evaluate model performance
-    silhouette = silhouette_score(X_scaled, labels) if len(set(labels)) > 1 else float("nan")
-    davies_bouldin = davies_bouldin_score(X_scaled, labels) if len(set(labels)) > 1 else float("nan")
-    
-    print(f"{model_name} - Silhouette Score: {silhouette:.4f}, Davies-Bouldin Score: {davies_bouldin:.4f}")
-    
-    # Store results
-    unsupervised_performance[model_name] = {
-        "Silhouette Score": silhouette,
-        "Davies-Bouldin Score": davies_bouldin
-    }
-
-# Convert results to a DataFrame for visualization
-unsupervised_performance_df = pd.DataFrame(unsupervised_performance).T
-
-# Plot performance metrics
-fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-# Silhouette Score plot
-unsupervised_performance_df["Silhouette Score"].plot(kind="bar", ax=axes[0], color="lightgreen")
-axes[0].set_title("Silhouette Score")
-axes[0].set_ylabel("Score")
-axes[0].set_xticklabels(unsupervised_performance_df.index, rotation=45)
-
-# Davies-Bouldin Score plot
-unsupervised_performance_df["Davies-Bouldin Score"].plot(kind="bar", ax=axes[1], color="orange")
-axes[1].set_title("Davies-Bouldin Score")
-axes[1].set_ylabel("Score")
-axes[1].set_xticklabels(unsupervised_performance_df.index, rotation=45)
-
-plt.tight_layout()
-plt.show()
-
-# Scatter plot visualization using PCA
-pca = PCA(n_components=2)
-X_pca = pca.fit_transform(X_scaled)
-
-fig, axes = plt.subplots(1, len(unsupervised_models), figsize=(15, 5))
-for i, (model_name, model) in enumerate(unsupervised_models.items()):
-    labels = model.fit_predict(X_scaled)
-    axes[i].scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap="viridis", s=10)
-    axes[i].set_title(f"{model_name} Clustering")
-    axes[i].set_xlabel("PCA Component 1")
-    axes[i].set_ylabel("PCA Component 2")
-
-plt.tight_layout()
-plt.show()
-
-# Display performance metrics
-print(unsupervised_performance_df)
+# # Confusion matrix for XGBoost
+# cm_xgb = confusion_matrix(y_test, y_pred_xgb)
+# plt.figure(figsize=(8, 6))
+# sns.heatmap(cm_xgb, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
+# plt.title('Confusion Matrix for XGBoost')
+# plt.xlabel('Predicted')
+# plt.ylabel('Actual')
+# plt.show()
