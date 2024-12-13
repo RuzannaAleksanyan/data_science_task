@@ -250,50 +250,85 @@ plt.xlabel('Predicted')
 plt.ylabel('Actual')
 # plt.show()
 
-# Alternative 1: Using Logistic Regression
-log_reg_model = LogisticRegression(solver='liblinear', max_iter=1000, random_state=42, fit_intercept=False)
-log_reg_model.fit(X_train, y_train)
-y_pred_logreg = log_reg_model.predict(X_test)
-accuracy_logreg = accuracy_score(y_test, y_pred_logreg)
-print("Logistic Regression Accuracy:", accuracy_logreg)
+# K-Means
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Confusion matrix for Logistic Regression
-cm_logreg = confusion_matrix(y_test, y_pred_logreg)
+# Apply scaling to the features that will be used for clustering
+X_for_clustering = df.drop(columns=['TransactionID', 'TotalPrice', 'CustomerType'])
+numeric_columns = X_for_clustering.select_dtypes(include=[np.number]).columns
+X_for_clustering[numeric_columns] = StandardScaler().fit_transform(X_for_clustering[numeric_columns])
+
+# # Apply KMeans Clustering
+# 1. Ոչ թվային սյուների հայտնաբերում
+non_numeric_columns = df.select_dtypes(exclude=[np.number]).columns
+print("Ոչ թվային սյուներ:", non_numeric_columns)
+
+# Օրացուցային կամ տեքստային սյուների մշակում
+for col in non_numeric_columns:
+    if 'date' in col.lower() or 'DateColumn' in col:  # Նույնացնում ենք օրացուցային սյուները
+        df[col] = pd.to_datetime(df[col])  # Վերածում datetime-ի
+        df[f'{col}_Year'] = df[col].dt.year
+        df[f'{col}_Month'] = df[col].dt.month
+        df[f'{col}_Day'] = df[col].dt.day
+        df = df.drop(columns=[col])  # Հեռացնում ենք օրացուցային սյունը
+    else:
+        # Տեքստային սյուների փոխակերպում թվային ձևաչափի (LabelEncoder կամ get_dummies)
+        df = pd.get_dummies(df, columns=[col], drop_first=True)
+
+# 2. Դատարկ արժեքների մշակում
+print("Դատարկ արժեքներ՝ նախքան մշակում:", df.isnull().sum())
+df = df.fillna(df.mean())
+print("Դատարկ արժեքներ՝ մշակումից հետո:", df.isnull().sum())
+
+# 3. Կլաստերացման տվյալների պատրաստում
+columns_to_drop = ['TransactionID', 'TotalPrice', 'CustomerType']
+columns_to_drop = [col for col in columns_to_drop if col in df.columns]  # Պայմանական ստուգում
+X_for_clustering = df.drop(columns=columns_to_drop)
+
+# Ստանդարտիզացում (միայն թվային սյուների համար)
+numeric_columns = X_for_clustering.select_dtypes(include=[np.number]).columns
+scaler = StandardScaler()
+X_for_clustering[numeric_columns] = scaler.fit_transform(X_for_clustering[numeric_columns])
+
+# 4. KMeans Clustering
+kmeans = KMeans(n_clusters=3, random_state=42)  # Որոշում ենք 3 կլաստեր
+df['Cluster'] = kmeans.fit_predict(X_for_clustering)
+
+# 5. Վիզուալիզացիա
 plt.figure(figsize=(8, 6))
-sns.heatmap(cm_logreg, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
-plt.title('Confusion Matrix for Logistic Regression')
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
+sns.scatterplot(data=df, x='QuantitySold', y='UnitPrice', hue='Cluster', palette='viridis', s=100)
+plt.title('K-Means Clustering Results (Quantity Sold vs Unit Price)')
+plt.xlabel('Quantity Sold')
+plt.ylabel('Unit Price')
+plt.legend(title='Cluster')
 # plt.show()
 
-# Alternative 2: Using RandomForestClassifier
-rf_model = RandomForestClassifier(n_jobs=-1, random_state=42)
-rf_model.fit(X_train, y_train)
-y_pred_rf = rf_model.predict(X_test)
-accuracy_rf = accuracy_score(y_test, y_pred_rf)
-print("Random Forest Accuracy:", accuracy_rf)
-
-# Confusion matrix for Random Forest
-cm_rf = confusion_matrix(y_test, y_pred_rf)
+# Կլաստերների կենտրոնների ցուցադրում
+cluster_centers = kmeans.cluster_centers_
 plt.figure(figsize=(8, 6))
-sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
-plt.title('Confusion Matrix for Random Forest')
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.show()
-
-# # Alternative 3: Using XGBoost
-# xgb_model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
-# xgb_model.fit(X_train, y_train)
-# y_pred_xgb = xgb_model.predict(X_test)
-# accuracy_xgb = accuracy_score(y_test, y_pred_xgb)
-# print("XGBoost Accuracy:", accuracy_xgb)
-
-# # Confusion matrix for XGBoost
-# cm_xgb = confusion_matrix(y_test, y_pred_xgb)
-# plt.figure(figsize=(8, 6))
-# sns.heatmap(cm_xgb, annot=True, fmt='d', cmap='Blues', xticklabels=['Business', 'Individual'], yticklabels=['Business', 'Individual'])
-# plt.title('Confusion Matrix for XGBoost')
-# plt.xlabel('Predicted')
-# plt.ylabel('Actual')
+plt.scatter(cluster_centers[:, 0], cluster_centers[:, 1], c='red', marker='x', s=200, label='Cluster Centers')
+plt.scatter(X_for_clustering['QuantitySold'], X_for_clustering['UnitPrice'], s=50, c=df['Cluster'], cmap='viridis', alpha=0.7)
+plt.title('K-Means Clustering with Cluster Centers')
+plt.xlabel('Quantity Sold')
+plt.ylabel('Unit Price')
+plt.legend()
 # plt.show()
+
+# Կլաստերների ամփոփ տվյալներ
+cluster_summary = df.groupby('Cluster').agg({
+    'QuantitySold': ['mean', 'std'],
+    'UnitPrice': ['mean', 'std'],
+    'TotalPrice': ['mean', 'std']
+}).reset_index()
+print("Կլաստերների ամփոփում:")
+print(cluster_summary)
+
+
+# # կոռելյացիայի ցուցադրում
+# # Alternative 1: Using Logistic Regression
+# # Confusion matrix for Logistic Regression
+
+# # Alternative 2: Using RandomForestClassifier
+# # Confusion matrix for Random Forest
