@@ -2,13 +2,10 @@ import pandas as pd
 df = pd.read_csv('/home/rozale/Desktop/data_science_task/project2/economic_data_600k.csv')
 df.info()
 print(df.head(20))
-# missing value-ների քանակ 
 print(df.isnull().sum())
-# նոր տվյալների բազա, որտեղ հեռացված են missing value-ները
 new_df = df.dropna()
 print(new_df.head(20))
 new_df.info()
-# Սյունակի բաց թողնված արժեքները լրացնել այդ սյունակի միջին արժեքով։
 df['QuantitySold'].fillna(df['QuantitySold'].mean())
 print(df.head(20))
 df.describe()
@@ -18,6 +15,7 @@ import numpy as np
 numeric_df = df.select_dtypes(include=[np.number])
 print("Non-numeric columns:", df.select_dtypes(exclude=[np.number]).columns)
 correlation_matrix = numeric_df.corr()
+print("Correlation matrix: ")
 print(correlation_matrix)
 
 # Կորելացիոն մատրիցի ցուցադրում գրաֆիկորեն
@@ -99,16 +97,6 @@ plt.ylabel('Predicted')
 plt.title('Actual vs Predicted Values')
 plt.show()
 
-# import numpy as np
-# import pandas as pd
-# from sklearn.ensemble import RandomForestClassifier
-# import xgboost as xgb
-# from catboost import CatBoostClassifier
-# import seaborn as sns
-# import matplotlib.pyplot as plt
-# from sklearn.model_selection import train_test_split
-# from sklearn.preprocessing import StandardScaler
-
 from sklearn.linear_model import SGDRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -180,7 +168,7 @@ scaler = StandardScaler()
 X_for_clustering[numeric_columns] = scaler.fit_transform(X_for_clustering[numeric_columns])
 
 # KMeans Clustering
-kmeans = KMeans(n_clusters=3, random_state=42)  # Որոշում ենք 3 կլաստեր
+kmeans = KMeans(n_clusters=2, random_state=42)  # Որոշում ենք 3 կլաստեր
 df['Cluster'] = kmeans.fit_predict(X_for_clustering)
 
 # Վիզուալիզացիա
